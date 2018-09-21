@@ -1,6 +1,5 @@
 package main
 
-import "fmt"
 import "os"
 import "log"
 import "net"
@@ -77,8 +76,6 @@ func main() {
 				if (c.IsSet("user")) && (c.IsSet("password")) {
 					SendEmailAuth(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2), c.Args().Get(3), c.Args().Get(4), c.String("user"), c.String("password"))
 				}
-				fmt.Printf("%#v", c.FlagNames())
-				fmt.Printf("%#v", c.IsSet("user"))
 				return nil
 			},
 		},
