@@ -83,14 +83,6 @@ func main() {
 			},
 		},
 	}
-	// app.Action = func(c *cli.Context) error {
-	// 	if len(os.Args) == 1 {
-	// 		cli.ShowAppHelpAndExit(c, 0)
-	// 	}
-	// 	fmt.Printf("Hello %q \r\n", c.Args().Get(0))
-	// 	fmt.Printf("Hello %q \r\n", c.Args().Get(1))
-	// 	return nil
-	// }
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
