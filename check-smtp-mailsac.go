@@ -26,7 +26,7 @@ func SendEmailNoAuth(to string, from string, server string, subject string, body
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/plain", body)
-
+	m.AddAlternative("text/html", body)
 	d := gomail.Dialer{Host: host, Port: portint}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
@@ -41,13 +41,11 @@ func SendEmailAuth(to string, from string, server string, subject string, body s
 		panic(err)
 	}
 	m := gomail.NewMessage()
-	fromrfc5322 := m.FormatAddress(from, "Michael")
-	m.SetHeader("From", fromrfc5322)
-	//m.SetHeader("To", to)
-	m.SetAddressHeader("To", to, "Admin")
+	m.SetHeader("From", from)
+	m.SetHeader("To", to)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/plain", body)
-	m.SetDateHeader("X-Date", time.Now())
+	m.AddAlternative("text/html", body)
 	d := gomail.Dialer{Host: host, Port: portint, Username: user, Password: password}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
@@ -92,7 +90,6 @@ func ParseMailsacInbox(data []byte) {
 }
 
 func main() {
-	// os.Args = []string{"checksmtp", "checksmtp", "admin@mailsac.com"}
 	app := cli.NewApp()
 	app.Name = "check-smtp-mailsac"
 	app.Version = "0.1"
