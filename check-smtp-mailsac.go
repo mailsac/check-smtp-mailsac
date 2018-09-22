@@ -9,6 +9,7 @@ import "net/url"
 import "io/ioutil"
 import "fmt"
 import "time"
+import "github.com/olorin/nagiosplugin"
 import "github.com/buger/jsonparser"
 import "github.com/google/uuid"
 import "gopkg.in/gomail.v2"
@@ -167,12 +168,24 @@ func main() {
 				}
 				// sleep for delay before checking mail
 				time.Sleep(time.Duration(c.Int("delay")) * time.Second)
+				// initialize nagios check
+				check := nagiosplugin.NewCheck()
+				defer check.Finish()
 				inboxdata := GetMailsacInbox(c.Args().Get(0), c.GlobalString("apiurl"), c.String("apikey"))
 				messages := GetMailsacInboxMessages(inboxdata)
+				mailreceived := bool(false)
 				for _, m := range messages {
 					if m == mailid {
-						fmt.Println("Mail Received!")
+						mailreceived = true
 					}
+				}
+				switch mailreceived {
+				case true:
+					check.AddResult(nagiosplugin.OK, "Email received by mailsac")
+				case false:
+					check.AddResult(nagiosplugin.CRITICAL, "Email not received by mailsac")
+				default:
+					check.AddResult(nagiosplugin.UNKNOWN, "Unkown result")
 				}
 				return nil
 			},
