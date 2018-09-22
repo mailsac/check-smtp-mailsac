@@ -4,6 +4,13 @@ import "os"
 import "log"
 import "net"
 import "strconv"
+import "net/http"
+import "net/url"
+import "io/ioutil"
+import "fmt"
+import "time"
+import "github.com/buger/jsonparser"
+import "github.com/google/uuid"
 import "gopkg.in/gomail.v2"
 import "github.com/urfave/cli"
 
@@ -34,17 +41,58 @@ func SendEmailAuth(to string, from string, server string, subject string, body s
 		panic(err)
 	}
 	m := gomail.NewMessage()
-	m.SetHeader("From", from)
-	m.SetHeader("To", to)
+	fromrfc5322 := m.FormatAddress(from, "Michael")
+	m.SetHeader("From", fromrfc5322)
+	//m.SetHeader("To", to)
+	m.SetAddressHeader("To", to, "Admin")
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/plain", body)
-
+	m.SetDateHeader("X-Date", time.Now())
 	d := gomail.Dialer{Host: host, Port: portint, Username: user, Password: password}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
 	}
 }
+
+// GetMailsacInbox Retrieves messages from a Mailsac inbox
+func GetMailsacInbox(address string, apiurl string, apikey string) []byte {
+	client := &http.Client{}
+	encodedAddress := url.PathEscape(address)
+	req, err := http.NewRequest("GET", apiurl+"/addresses/"+encodedAddress+"/messages", nil)
+	req.Header.Add("Mailsac-Key", apikey)
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	return body
+	//	fmt.Println(string(body))
+	//	fmt.Println(jsonparser.GetString(body, "[0]", "_id"))
+}
+
+// GetMailsacInboxMessages fetches an array of subjects from an inbox
+func GetMailsacInboxMessages(data []byte) []string {
+	subjects := []string{}
+	// iterate over array of messages returned from mailsac
+	jsonparser.ArrayEach(data, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+		subject, err := jsonparser.GetString(value, "subject")
+		log.Println("Subject: " + subject)
+		subjects = append(subjects, subject)
+	})
+	return subjects
+}
+
+// ParseMailsacInbox retrieves a message from mailsac
+func ParseMailsacInbox(data []byte) {
+	// iterate over array of messages returned from mailsac
+	jsonparser.ArrayEach(data, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+		fmt.Println(jsonparser.GetString(value, "_id"))
+	})
+}
+
 func main() {
+	// os.Args = []string{"checksmtp", "checksmtp", "admin@mailsac.com"}
 	app := cli.NewApp()
 	app.Name = "check-smtp-mailsac"
 	app.Version = "0.1"
@@ -53,6 +101,13 @@ func main() {
 		{Name: "Michael Mayer", Email: "mjmayer@gmail.com"},
 	}
 	app.ArgsUsage = "[smtpserver]"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "apiurl",
+			Value: "https://mailsac.com/api",
+			Usage: "Base URL for the Mailsac API",
+		},
+	}
 	app.Commands = []cli.Command{
 		{
 			Name:  "send",
@@ -76,6 +131,67 @@ func main() {
 				if (c.IsSet("user")) && (c.IsSet("password")) {
 					SendEmailAuth(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2), c.Args().Get(3), c.Args().Get(4), c.String("user"), c.String("password"))
 				}
+				return nil
+			},
+		},
+		{
+			Name:  "checksmtp",
+			Usage: "[To Address] [From Address] [SMTP Server:Port]",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "user",
+					Value: "",
+					Usage: "User name for SMTP authentication",
+				},
+				cli.StringFlag{
+					Name:  "password",
+					Value: "",
+					Usage: "Password for SMTP authentication",
+				},
+				cli.StringFlag{
+					Name:  "apikey",
+					Value: "",
+					Usage: "API key for Mailsac",
+				},
+				cli.IntFlag{
+					Name:  "delay",
+					Value: 15,
+					Usage: "Delay to wait for email to be delivered to Mailsac",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				mailid := uuid.New().String()
+				log.Println("UUID: " + mailid)
+				if !(c.IsSet("user")) && !(c.IsSet("password")) {
+					SendEmailNoAuth(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2), mailid, "")
+				}
+				if (c.IsSet("user")) && (c.IsSet("password")) {
+					SendEmailAuth(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2), mailid, "", c.String("user"), c.String("password"))
+				}
+				// sleep for delay before checking mail
+				time.Sleep(time.Duration(c.Int("delay")) * time.Second)
+				inboxdata := GetMailsacInbox(c.Args().Get(0), c.GlobalString("apiurl"), c.String("apikey"))
+				messages := GetMailsacInboxMessages(inboxdata)
+				for _, m := range messages {
+					if m == mailid {
+						fmt.Println("Mail Received!")
+					}
+				}
+				return nil
+			},
+		},
+		{
+			Name:  "getmail",
+			Usage: "[Email Address]",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "apikey",
+					Value: "",
+					Usage: "API key for Mailsac",
+				},
+			},
+			Action: func(c *cli.Context) error {
+				ParseMailsacInbox(GetMailsacInbox(c.Args().Get(0), c.GlobalString("apiurl"), c.String("apikey")))
 				return nil
 			},
 		},
