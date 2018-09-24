@@ -70,8 +70,6 @@ func GetMailsacInbox(address string, apiurl string, apikey string) []byte {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	return body
-	//	fmt.Println(string(body))
-	//	fmt.Println(jsonparser.GetString(body, "[0]", "_id"))
 }
 
 // GetMailsacInboxMessages fetches an array of subjects from an inbox
