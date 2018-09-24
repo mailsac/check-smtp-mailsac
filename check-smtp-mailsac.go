@@ -9,9 +9,13 @@ import "net/url"
 import "io/ioutil"
 import "fmt"
 import "time"
+import "flag"
+
+//import "github.com/op/go-logging"
 import "github.com/olorin/nagiosplugin"
 import "github.com/buger/jsonparser"
 import "github.com/google/uuid"
+import "github.com/golang/glog"
 import "gopkg.in/gomail.v2"
 import "github.com/urfave/cli"
 
@@ -105,6 +109,11 @@ func main() {
 			Value: "https://mailsac.com/api",
 			Usage: "Base URL for the Mailsac API",
 		},
+		cli.StringFlag{
+			Name:  "loglevel",
+			Value: "FATAL",
+			Usage: "[WARNING|ERROR|INFO|FATAL]",
+		},
 	}
 	app.Commands = []cli.Command{
 		{
@@ -158,8 +167,12 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
+				flag.Set("stderrthreshold", c.GlobalString("loglevel"))
+
+				// mailid is a uuid used to uniquely identify the email sent to mailsac
 				mailid := uuid.New().String()
-				log.Println("UUID: " + mailid)
+				glog.Info("Test")
+				glog.Info("UUID: " + mailid)
 				if !(c.IsSet("user")) && !(c.IsSet("password")) {
 					SendEmailNoAuth(c.Args().Get(0), c.Args().Get(1), c.Args().Get(2), mailid, "")
 				}
@@ -206,6 +219,9 @@ func main() {
 			},
 		},
 	}
+	flag.Parse()
+	flag.Lookup("logtostderr").Value.Set("true")
+	defer glog.Flush()
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
